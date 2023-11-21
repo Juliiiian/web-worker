@@ -24,33 +24,31 @@ const EVENTS = Symbol.for('events');
 class EventTarget {
 	constructor() {
 		Object.defineProperty(this, EVENTS, {
-			value: new Map()
+			value: new Map(),
 		});
 	}
 	dispatchEvent(event) {
 		event.target = event.currentTarget = this;
-		if (this['on'+event.type]) {
+		if (this['on' + event.type]) {
 			try {
-				this['on'+event.type](event);
-			}
-			catch (err) {
+				this['on' + event.type](event);
+			} catch (err) {
 				console.error(err);
 			}
 		}
 		const list = this[EVENTS].get(event.type);
 		if (list == null) return;
-		list.forEach(handler => {
+		list.forEach((handler) => {
 			try {
 				handler.call(this, event);
-			}
-			catch (err) {
+			} catch (err) {
 				console.error(err);
 			}
 		});
 	}
 	addEventListener(type, fn) {
 		let events = this[EVENTS].get(type);
-		if (!events) this[EVENTS].set(type, events = []);
+		if (!events) this[EVENTS].set(type, (events = []));
 		events.push(fn);
 	}
 	removeEventListener(type, fn) {
@@ -75,7 +73,6 @@ export default threads.isMainThread ? mainThread() : workerThread();
 const baseUrl = URL.pathToFileURL(process.cwd() + '/');
 
 function mainThread() {
-
 	/**
 	 * A web-compatible Worker implementation atop Node's worker_threads.
 	 *  - uses DOM-style events (Event.data, Event.type, etc)
@@ -96,23 +93,19 @@ function mainThread() {
 			let mod;
 			if (/^data:/.test(url)) {
 				mod = url;
-			}
-			else {
+			} else {
 				mod = URL.fileURLToPath(new URL.URL(url, baseUrl));
 			}
-			const worker = new threads.Worker(
-				__filename,
-				{ workerData: { mod, name, type } }
-			);
+			const worker = new threads.Worker(__filename, { workerData: { mod, name, type } });
 			Object.defineProperty(this, WORKER, {
-				value: worker
+				value: worker,
 			});
-			worker.on('message', data => {
+			worker.on('message', (data) => {
 				const event = new Event('message');
 				event.data = data;
 				this.dispatchEvent(event);
 			});
-			worker.on('error', error => {
+			worker.on('error', (error) => {
 				error.type = 'error';
 				this.dispatchEvent(error);
 			});
@@ -135,22 +128,24 @@ function workerThread() {
 	let { mod, name, type } = threads.workerData;
 
 	// turn global into a mock WorkerGlobalScope
-	const self = global.self = global;
+	const self = (global.self = global);
 
 	// enqueue messages to dispatch after modules are loaded
 	let q = [];
 	function flush() {
 		const buffered = q;
 		q = null;
-		buffered.forEach(event => { self.dispatchEvent(event); });
+		buffered.forEach((event) => {
+			self.dispatchEvent(event);
+		});
 	}
-	threads.parentPort.on('message', data => {
+	threads.parentPort.on('message', (data) => {
 		const event = new Event('message');
 		event.data = data;
 		if (q == null) self.dispatchEvent(event);
 		else q.push(event);
 	});
-	threads.parentPort.on('error', err => {
+	threads.parentPort.on('error', (err) => {
 		err.type = 'Error';
 		self.dispatchEvent(err);
 	});
@@ -168,15 +163,15 @@ function workerThread() {
 	delete proto.constructor;
 	Object.defineProperties(WorkerGlobalScope.prototype, proto);
 	proto = Object.setPrototypeOf(global, new WorkerGlobalScope());
-	['postMessage', 'addEventListener', 'removeEventListener', 'dispatchEvent'].forEach(fn => {
+	['postMessage', 'addEventListener', 'removeEventListener', 'dispatchEvent'].forEach((fn) => {
 		proto[fn] = proto[fn].bind(global);
 	});
 	global.name = name;
 
 	const isDataUrl = /^data:/.test(mod);
 	if (type === 'module') {
-		import(mod)
-			.catch(err => {
+		import(URL.pathToFileURL(mod))
+			.catch((err) => {
 				if (isDataUrl && err.message === 'Not supported') {
 					console.warn('Worker(): Importing data: URLs requires Node 12.10+. Falling back to classic worker.');
 					return evaluateDataUrl(mod, name);
@@ -184,17 +179,14 @@ function workerThread() {
 				console.error(err);
 			})
 			.then(flush);
-	}
-	else {
+	} else {
 		try {
 			if (/^data:/.test(mod)) {
 				evaluateDataUrl(mod, name);
-			}
-			else {
+			} else {
 				require(mod);
 			}
-		}
-		catch (err) {
+		} catch (err) {
 			console.error(err);
 		}
 		Promise.resolve().then(flush);
@@ -204,19 +196,20 @@ function workerThread() {
 function evaluateDataUrl(url, name) {
 	const { data } = parseDataUrl(url);
 	return VM.runInThisContext(data, {
-		filename: 'worker.<'+(name || 'data:')+'>'
+		filename: 'worker.<' + (name || 'data:') + '>',
 	});
 }
 
 function parseDataUrl(url) {
 	let [m, type, encoding, data] = url.match(/^data: *([^;,]*)(?: *; *([^,]*))? *,(.*)$/) || [];
 	if (!m) throw Error('Invalid Data URL.');
-	if (encoding) switch (encoding.toLowerCase()) {
-		case 'base64':
-			data = Buffer.from(data, 'base64').toString();
-			break;
-		default:
-			throw Error('Unknown Data URL encoding "' + encoding + '"');
-	}
+	if (encoding)
+		switch (encoding.toLowerCase()) {
+			case 'base64':
+				data = Buffer.from(data, 'base64').toString();
+				break;
+			default:
+				throw Error('Unknown Data URL encoding "' + encoding + '"');
+		}
 	return { type, data };
 }
