@@ -18,6 +18,8 @@ import URL from 'url';
 import VM from 'vm';
 import threads from 'worker_threads';
 
+const __filename = URL.fileURLToPath(import.meta.url);
+
 const WORKER = Symbol.for('worker');
 const EVENTS = Symbol.for('events');
 
