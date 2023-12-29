@@ -127,6 +127,7 @@ function mainThread() {
 }
 
 function workerThread() {
+	if (threads.workerData === undefined) return;
 	let { mod, name, type } = threads.workerData;
 
 	// turn global into a mock WorkerGlobalScope
